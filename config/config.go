@@ -6,29 +6,32 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 	constant "github.com/litongjava/hftp/const"
 )
 
 type Config struct {
-	Server string `toml:"server"`
+	Server       string `toml:"server"`
+	Token        string `toml:"token,omitempty"`
+	RefreshToken string `toml:"refresh_token,omitempty"`
 }
 
-// InitConfig 初始化配置文件
+// InitConfig initializes configuration file
 func InitConfig(serverURL string) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("无法获取用户主目录: %v", err)
+		return fmt.Errorf("failed to get user home directory: %v", err)
 	}
 
 	configDir := filepath.Join(homeDir, ".hftp")
 	configPath := filepath.Join(configDir, "config.toml")
 
-	// 创建配置目录
+	// Create config directory
 	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("创建配置目录失败: %v", err)
+		return fmt.Errorf("failed to create config directory: %v", err)
 	}
 
-	// 设置默认服务器地址
+	// Set default server URL
 	if serverURL == "" {
 		serverURL = constant.ServerURL
 	}
@@ -37,62 +40,62 @@ func InitConfig(serverURL string) error {
 		Server: serverURL,
 	}
 
-	// 创建配置文件
+	// Create config file
 	file, err := os.Create(configPath)
 	if err != nil {
-		return fmt.Errorf("创建配置文件失败: %v", err)
+		return fmt.Errorf("failed to create config file: %v", err)
 	}
 	defer file.Close()
 
-	// 写入配置
+	// Write config
 	encoder := toml.NewEncoder(file)
 	if err := encoder.Encode(config); err != nil {
-		return fmt.Errorf("写入配置文件失败: %v", err)
+		return fmt.Errorf("failed to write config file: %v", err)
 	}
 
-	fmt.Printf("✅ 配置文件已创建: %s\n", configPath)
-	fmt.Printf("服务器地址: %s\n", serverURL)
+	fmt.Printf("✅ Config file created: %s\n", configPath)
+	fmt.Printf("Server URL: %s\n", serverURL)
 	return nil
 }
 
-// LoadConfig 读取配置文件，优先级：当前目录 > ~/.hftp/config.toml > 默认地址
+// LoadConfig loads config file with priority: current dir > ~/.hftp/config.toml > default
 func LoadConfig() (string, error) {
-	// 1. 检查当前目录下的 config.toml
+	// 1. Check current directory config
 	if serverURL, err := loadFromCurrentDir(); err == nil && serverURL != "" {
 		return serverURL, nil
 	}
 
-	// 2. 检查用户主目录下的配置
+	// 2. Check user home directory config
 	if serverURL, err := loadFromHomeDir(); err == nil && serverURL != "" {
 		return serverURL, nil
 	}
 
-	// 3. 返回默认地址
+	// 3. Return default URL
 	return constant.ServerURL, nil
 }
 
-// loadFromCurrentDir 从当前目录加载配置
+// loadFromCurrentDir loads config from current directory
 func loadFromCurrentDir() (string, error) {
-	configPath := "config.toml"
+	configPath := filepath.Join(".hftp", "config.toml")
 
-	// 检查文件是否存在
+	// Check if file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("当前目录下不存在 config.toml")
+		return "", fmt.Errorf("config file not found in current directory")
 	}
 
 	var cfg Config
 	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
-		return "", fmt.Errorf("解析当前目录配置文件失败: %v", err)
+		return "", fmt.Errorf("failed to parse current directory config: %v", err)
 	}
 
 	if cfg.Server == "" {
-		return "", fmt.Errorf("当前目录配置文件中未设置服务器地址")
+		return "", fmt.Errorf("server URL not set in current directory config")
 	}
 
 	return cfg.Server, nil
 }
 
-// loadFromHomeDir 从用户主目录加载配置
+// loadFromHomeDir loads config from user home directory
 func loadFromHomeDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -101,38 +104,54 @@ func loadFromHomeDir() (string, error) {
 
 	configPath := filepath.Join(homeDir, ".hftp", "config.toml")
 
-	// 检查文件是否存在
+	// Check if file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("用户主目录下不存在配置文件")
+		return "", fmt.Errorf("config file not found in user home directory")
 	}
 
 	var cfg Config
 	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
-		return "", fmt.Errorf("解析用户主目录配置文件失败: %v", err)
+		return "", fmt.Errorf("failed to parse user home directory config: %v", err)
 	}
 
 	if cfg.Server == "" {
-		return "", fmt.Errorf("用户主目录配置文件中未设置服务器地址")
+		return "", fmt.Errorf("server URL not set in user home directory config")
 	}
 
 	return cfg.Server, nil
 }
 
-// ListConfigs 显示所有配置信息
+// ListConfigs displays all config information
 func ListConfigs() {
-	// . 显示实际生效的配置
+	// Display active config
 	activeConfig, _ := LoadConfig()
-	fmt.Printf("server: %s\n", activeConfig)
-}
+	fmt.Printf("activte server: %s\n", activeConfig)
 
-// getCurrentDirConfig 获取当前目录配置（不返回错误，用于显示）
-func getCurrentDirConfig() (Config, error) {
-	configPath := "config.toml"
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return Config{}, err
+	// Display current directory config
+	if cfg, err := getCurrentDirConfig(); err == nil {
+		fmt.Printf("current dir config - server: %s, token: %s\n", cfg.Server, maskToken(cfg.Token))
 	}
 
+	// Display home directory config
+	if cfg, err := getHomeDirConfig(); err == nil {
+		fmt.Printf("home dir config - server: %s, token: %s\n", cfg.Server, maskToken(cfg.Token))
+	}
+}
+
+// getCurrentDirConfig gets current directory config
+func getCurrentDirConfig() (Config, error) {
+	configPath := filepath.Join(".hftp", "config.toml")
+	_, err := os.Stat(configPath)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			hlog.Info("not found file:", configPath)
+			return Config{}, err
+		} else {
+			hlog.Error(err.Error())
+			return Config{}, err
+		}
+	}
 	var cfg Config
 	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
 		return Config{}, err
@@ -141,7 +160,7 @@ func getCurrentDirConfig() (Config, error) {
 	return cfg, nil
 }
 
-// getHomeDirConfig 获取用户主目录配置（不返回错误，用于显示）
+// getHomeDirConfig gets user home directory config
 func getHomeDirConfig() (Config, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -160,4 +179,165 @@ func getHomeDirConfig() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// SaveToken saves token to the highest priority config file
+func SaveToken(token, refreshToken string) error {
+	// First check current directory config
+	configPath := filepath.Join(".hftp", "config.toml")
+	if _, err := os.Stat(configPath); err == nil {
+		return saveTokenToCurrentDir(token, refreshToken)
+	}
+
+	// Then check user home directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %v", err)
+	}
+
+	configPath = filepath.Join(homeDir, ".hftp", "config.toml")
+	if _, err := os.Stat(configPath); err == nil {
+		return saveTokenToHomeDir(token, refreshToken)
+	}
+
+	// If no config file exists, create current directory config
+	return saveTokenToCurrentDir(token, refreshToken)
+}
+
+// saveTokenToCurrentDir saves token to current directory config file
+func saveTokenToCurrentDir(token, refreshToken string) error {
+	configPath := filepath.Join(".hftp", "config.toml")
+
+	// Read existing config
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		// If file doesn't exist or parse fails, create new
+		cfg = Config{}
+
+		// Ensure .hftp directory exists
+		dir := filepath.Dir(configPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory: %v", err)
+		}
+	}
+
+	// Update token
+	cfg.Token = token
+	cfg.RefreshToken = refreshToken
+
+	// Preserve server URL if exists, otherwise set default
+	if cfg.Server == "" {
+		cfg.Server = constant.ServerURL
+	}
+
+	// Write back to file
+	file, err := os.Create(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %v", err)
+	}
+	defer file.Close()
+
+	encoder := toml.NewEncoder(file)
+	if err := encoder.Encode(cfg); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	fmt.Printf("✅ Token saved to: %s\n", configPath)
+	return nil
+}
+
+// saveTokenToHomeDir saves token to user home directory config file
+func saveTokenToHomeDir(token, refreshToken string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %v", err)
+	}
+
+	configDir := filepath.Join(homeDir, ".hftp")
+	configPath := filepath.Join(configDir, "config.toml")
+
+	// Read existing config
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return fmt.Errorf("failed to parse config file: %v", err)
+	}
+
+	// Update token
+	cfg.Token = token
+	cfg.RefreshToken = refreshToken
+
+	// Write back to file
+	file, err := os.Create(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %v", err)
+	}
+	defer file.Close()
+
+	encoder := toml.NewEncoder(file)
+	if err := encoder.Encode(cfg); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	fmt.Printf("✅ Token saved to: %s\n", configPath)
+	return nil
+}
+
+// LoadToken loads token from config file following priority order
+func LoadToken() (string, string, error) {
+	// 1. Check current directory config
+	if token, refreshToken, err := loadTokenFromCurrentDir(); err == nil && token != "" {
+		return token, refreshToken, nil
+	}
+
+	// 2. Check user home directory config
+	if token, refreshToken, err := loadTokenFromHomeDir(); err == nil && token != "" {
+		return token, refreshToken, nil
+	}
+
+	return "", "", fmt.Errorf("no valid token configuration found")
+}
+
+// loadTokenFromCurrentDir loads token from current directory config file
+func loadTokenFromCurrentDir() (string, string, error) {
+	configPath := filepath.Join(".hftp", "config.toml")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("config file not found in current directory")
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return "", "", fmt.Errorf("failed to parse current directory config: %v", err)
+	}
+
+	return cfg.Token, cfg.RefreshToken, nil
+}
+
+// loadTokenFromHomeDir loads token from user home directory config file
+func loadTokenFromHomeDir() (string, string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", "", err
+	}
+
+	configPath := filepath.Join(homeDir, ".hftp", "config.toml")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("config file not found in user home directory")
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return "", "", fmt.Errorf("failed to parse user home directory config: %v", err)
+	}
+
+	return cfg.Token, cfg.RefreshToken, nil
+}
+
+// maskToken masks token for display purposes
+func maskToken(token string) string {
+	if len(token) <= 10 {
+		return "****"
+	}
+	return token[:6] + "****" + token[len(token)-4:]
 }

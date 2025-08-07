@@ -140,7 +140,7 @@ func handleRegister() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("🔧 使用服务器地址: %s\n", serverURL)
+	fmt.Printf("🔧 server url: %s\n", serverURL)
 	register(serverURL+RegisterPath, username, password)
 }
 
@@ -155,7 +155,7 @@ func handleLogin() {
 
 	serverURL, err := config.LoadConfig()
 	if err != nil {
-		fmt.Println("❌ 加载配置失败:", err)
+		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
 	}
 
@@ -185,9 +185,9 @@ func register(url, username, password string) {
 	json.Unmarshal(body, &apiResp)
 
 	if apiResp.Ok {
-		fmt.Println("✅ 注册成功!")
+		fmt.Println("✅ Successfully!")
 	} else {
-		fmt.Printf("❌ 注册失败: %s\n", string(body))
+		fmt.Printf("❌ Failed: %s\n", string(body))
 		if data, ok := apiResp.Data.([]interface{}); ok {
 			for _, item := range data {
 				if fieldMap, ok := item.(map[string]interface{}); ok {
@@ -211,7 +211,7 @@ func login(url, username, password string) {
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("❌ 登录请求失败:", err)
+		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
@@ -221,10 +221,23 @@ func login(url, username, password string) {
 	json.Unmarshal(body, &apiResp)
 
 	if apiResp.Ok {
-		fmt.Println("✅ 登录成功!")
-		// 可以打印 token 等信息
-		fmt.Println("响应:", string(body))
+		fmt.Println("✅ Successfully!")
+		// 解析 data 字段
+		data, ok := apiResp.Data.(map[string]interface{})
+		if !ok {
+			fmt.Println("❌ Failed to parse data field")
+			os.Exit(1)
+		}
+
+		token, _ := data["token"].(string)
+		refreshToken, _ := data["refresh_token"].(string)
+
+		// 保存 token 到配置文件
+		if err := config.SaveToken(token, refreshToken); err != nil {
+			fmt.Println("❌ Failed to save token:", err)
+			os.Exit(1)
+		}
 	} else {
-		fmt.Printf("❌ 登录失败: %s\n", string(body))
+		fmt.Printf("❌ Failed: %s\n", string(body))
 	}
 }
