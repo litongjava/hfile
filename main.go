@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"io"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 const (
 	RegisterPath = "/api/v1/register"
 	LoginPath    = "/api/v1/login"
+	ProfilePath  = "/api/v1/user/profile"
 )
 
 func main() {
@@ -57,6 +59,8 @@ func main() {
 		handleRegister()
 	case "login":
 		handleLogin()
+	case "profile":
+		handleProfile()
 	default:
 		fmt.Println("❌ 无效命令:", cmd)
 		printUsage()
@@ -163,6 +167,20 @@ func handleLogin() {
 	login(serverURL+LoginPath, username, password)
 }
 
+func handleProfile() {
+	serverURL, err := config.LoadConfig()
+	if err != nil {
+		fmt.Println("❌ Failed:", err)
+		os.Exit(1)
+	}
+	token, _, err := config.LoadToken()
+	if err != nil {
+		fmt.Println("❌ not found token，please login first")
+		os.Exit(1)
+	}
+	profile(serverURL+ProfilePath, token)
+}
+
 func register(url, username, password string) {
 	reqBody := model.RegisterRequest{
 		Username:         username,
@@ -240,4 +258,30 @@ func login(url, username, password string) {
 	} else {
 		fmt.Printf("❌ Failed: %s\n", string(body))
 	}
+}
+
+func profile(url string, token string) {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("❌ Failed:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var apiResp model.APIResponse
+	json.Unmarshal(body, &apiResp)
+
+	if apiResp.Ok {
+		fmt.Println("✅ Successfully!")
+		fmt.Println(string(body))
+	} else {
+		fmt.Println("❌ Failed")
+		hlog.Errorf(string(body))
+	}
+
 }
