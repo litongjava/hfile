@@ -1,4 +1,4 @@
-module github.com/litongjava/hftp
+module github.com/litongjava/hfile
 
 go 1.24.2
 

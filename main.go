@@ -1,287 +1,326 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"io"
-	"net/http"
-	"os"
-
-	"github.com/BurntSushi/toml"
-	"github.com/litongjava/hftp/config"
-	constant "github.com/litongjava/hftp/const"
-	"github.com/litongjava/hftp/model"
+  "fmt"
+  "github.com/BurntSushi/toml"
+  "github.com/cloudwego/hertz/pkg/common/hlog"
+  "github.com/litongjava/hfile/client"
+  "github.com/litongjava/hfile/config"
+  constant "github.com/litongjava/hfile/const"
+  "github.com/litongjava/hfile/utils"
+  "os"
+  "path/filepath"
 )
 
 const (
-	RegisterPath = "/api/v1/register"
-	LoginPath    = "/api/v1/login"
-	ProfilePath  = "/api/v1/user/profile"
+  RegisterPath = "/api/v1/register"
+  LoginPath    = "/api/v1/login"
+  ProfilePath  = "/api/v1/user/profile"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
+  if len(os.Args) < 2 {
+    printUsage()
+    os.Exit(1)
+  }
 
-	cmd := os.Args[1]
+  cmd := os.Args[1]
 
-	// 处理 config 子命令
-	if cmd == "config" {
-		if len(os.Args) < 3 {
-			fmt.Println("❌ 缺少 config 子命令")
-			printConfigUsage()
-			os.Exit(1)
-		}
+  // 处理 config 子命令
+  if cmd == "config" {
+    if len(os.Args) < 3 {
+      fmt.Println("❌ 缺少 config 子命令")
+      printConfigUsage()
+      os.Exit(1)
+    }
 
-		subCmd := os.Args[2]
-		switch subCmd {
-		case "list":
-			config.ListConfigs()
-			return
-		default:
-			fmt.Printf("❌ 无效的 config 子命令: %s\n", subCmd)
-			printConfigUsage()
-			os.Exit(1)
-		}
-	}
+    subCmd := os.Args[2]
+    switch subCmd {
+    case "list":
+      config.ListConfigs()
+      return
+    default:
+      fmt.Printf("❌ 无效的 config 子命令: %s\n", subCmd)
+      printConfigUsage()
+      os.Exit(1)
+    }
+  }
 
-	// 处理其他主命令
-	switch cmd {
-	case "init":
-		handleInit()
-	case "init-local":
-		handleInitLocal()
-	case "register":
-		handleRegister()
-	case "login":
-		handleLogin()
-	case "profile":
-		handleProfile()
-	default:
-		fmt.Println("❌ 无效命令:", cmd)
-		printUsage()
-		os.Exit(1)
-	}
+  // 处理其他主命令
+  switch cmd {
+  case "init":
+    handleInit()
+  case "init-local":
+    handleInitLocal()
+  case "register":
+    handleRegister()
+  case "login":
+    handleLogin()
+  case "profile":
+    handleProfile()
+  case "push":
+    handlePush()
+  case "pull":
+    handlePull()
+  case "status":
+    handleStatus()
+  default:
+    fmt.Println("❌ 无效命令:", cmd)
+    printUsage()
+    os.Exit(1)
+  }
 }
 
 func printUsage() {
-	fmt.Println("Usage:")
-	fmt.Println("  hftp init [server_url]          # 初始化用户主目录配置文件")
-	fmt.Println("  hftp init-local [server_url]    # 初始化当前目录配置文件")
-	fmt.Println("  hftp config list                # 显示所有配置信息")
-	fmt.Println("  hftp register <email> <password>       # 注册用户")
-	fmt.Println("  hftp login <email> <password>          # 用户登录")
-	fmt.Printf("  默认服务器地址: %s\n", constant.ServerURL)
+  fmt.Println("Usage:")
+  fmt.Println("  hfile init [server_url]          # 初始化用户主目录配置文件")
+  fmt.Println("  hfile init-local [server_url]    # 初始化当前目录配置文件")
+  fmt.Println("  hfile config list                # 显示所有配置信息")
+  fmt.Println("  hfile register <email> <password>       # 注册用户")
+  fmt.Println("  hfile login <email> <password>          # 用户登录")
+  fmt.Println("  hfile push                       # 推送本地变更到远程")
+  fmt.Println("  hfile pull                       # 拉取远程变更到本地")
+  fmt.Println("  hfile status                     # 显示待上传/下载的文件")
+  fmt.Printf("  默认服务器地址: %s\n", constant.ServerURL)
 }
 
 func printConfigUsage() {
-	fmt.Println("Usage:")
-	fmt.Println("  hftp config list                # 显示所有配置信息")
+  fmt.Println("Usage:")
+  fmt.Println("  hfile config list                # 显示所有配置信息")
 }
 
 func handleInit() {
-	var serverURL string
-	if len(os.Args) > 2 {
-		serverURL = os.Args[2]
-	}
+  var serverURL string
+  if len(os.Args) > 2 {
+    serverURL = os.Args[2]
+  }
 
-	if err := config.InitConfig(serverURL); err != nil {
-		fmt.Printf("❌ 初始化配置失败: %v\n", err)
-		os.Exit(1)
-	}
+  if err := config.InitConfig(serverURL); err != nil {
+    fmt.Printf("❌ Failed: %v\n", err)
+    os.Exit(1)
+  }
+  err := os.Mkdir(".hfile", 0755)
+  if err != nil {
+    hlog.Error("Failed:", err.Error())
+  }
 }
 
 func handleInitLocal() {
-	var serverURL string
-	if len(os.Args) > 2 {
-		serverURL = os.Args[2]
-	}
+  var serverURL string
+  if len(os.Args) > 2 {
+    serverURL = os.Args[2]
+  }
 
-	// 设置默认服务器地址
-	if serverURL == "" {
-		serverURL = constant.ServerURL
-	}
+  // 设置默认服务器地址
+  if serverURL == "" {
+    serverURL = constant.ServerURL
+  }
 
-	localConfig := config.Config{
-		Server: serverURL,
-	}
+  localConfig := config.Config{
+    Server: serverURL,
+  }
 
-	// 创建当前目录的配置文件
-	file, err := os.Create("config.toml")
-	if err != nil {
-		fmt.Printf("❌ 创建本地配置文件失败: %v\n", err)
-		os.Exit(1)
-	}
-	defer file.Close()
+  // 创建当前目录的配置文件
+  configFilePath := filepath.Join(".hfile", "config.toml")
+  file, err := os.Create(configFilePath)
+  if err != nil {
+    fmt.Printf("❌ Failed: %v\n", err)
+    os.Exit(1)
+  }
+  defer file.Close()
 
-	// 写入配置
-	encoder := toml.NewEncoder(file)
-	if err := encoder.Encode(localConfig); err != nil {
-		fmt.Printf("❌ 写入本地配置文件失败: %v\n", err)
-		os.Exit(1)
-	}
+  // 写入配置
+  encoder := toml.NewEncoder(file)
+  if err := encoder.Encode(localConfig); err != nil {
+    fmt.Printf("❌ Failed: %v\n", err)
+    os.Exit(1)
+  }
 
-	fmt.Printf("✅ 本地配置文件已创建: %s\n", "config.toml")
-	fmt.Printf("服务器地址: %s\n", serverURL)
+  fmt.Printf("✅ created: %s\n", configFilePath)
+  fmt.Printf("server url: %s\n", serverURL)
 }
 
 func handleRegister() {
-	if len(os.Args) < 4 {
-		fmt.Println("❌ 缺少参数。用法: hftp register <username> <password>")
-		os.Exit(1)
-	}
+  if len(os.Args) < 4 {
+    fmt.Println("❌ 缺少参数。用法: hfile register <username> <password>")
+    os.Exit(1)
+  }
 
-	username := os.Args[2]
-	password := os.Args[3]
+  username := os.Args[2]
+  password := os.Args[3]
 
-	serverURL, err := config.LoadConfig()
-	if err != nil {
-		fmt.Println("❌ 加载配置失败:", err)
-		os.Exit(1)
-	}
+  serverURL, err := config.LoadConfig()
+  if err != nil {
+    fmt.Println("❌ 加载配置失败:", err)
+    os.Exit(1)
+  }
 
-	fmt.Printf("🔧 server url: %s\n", serverURL)
-	register(serverURL+RegisterPath, username, password)
+  fmt.Printf("🔧 server url: %s\n", serverURL)
+  client.Register(serverURL+RegisterPath, username, password)
 }
 
 func handleLogin() {
-	if len(os.Args) < 4 {
-		fmt.Println("❌ 缺少参数。用法: hftp login <email> <password>")
-		os.Exit(1)
-	}
+  if len(os.Args) < 4 {
+    fmt.Println("❌ 缺少参数。用法: hfile login <email> <password>")
+    os.Exit(1)
+  }
 
-	username := os.Args[2]
-	password := os.Args[3]
+  username := os.Args[2]
+  password := os.Args[3]
 
-	serverURL, err := config.LoadConfig()
-	if err != nil {
-		fmt.Println("❌ Failed:", err)
-		os.Exit(1)
-	}
+  serverURL, err := config.LoadConfig()
+  if err != nil {
+    fmt.Println("❌ Failed:", err)
+    os.Exit(1)
+  }
 
-	fmt.Printf("🔧 server url: %s\n", serverURL)
-	login(serverURL+LoginPath, username, password)
+  fmt.Printf("🔧 server url: %s\n", serverURL)
+  client.Login(serverURL+LoginPath, username, password)
 }
 
 func handleProfile() {
-	serverURL, err := config.LoadConfig()
-	if err != nil {
-		fmt.Println("❌ Failed:", err)
-		os.Exit(1)
-	}
-	token, _, err := config.LoadToken()
-	if err != nil {
-		fmt.Println("❌ not found token，please login first")
-		os.Exit(1)
-	}
-	profile(serverURL+ProfilePath, token)
+  serverURL, err := config.LoadConfig()
+  if err != nil {
+    fmt.Println("❌ Failed:", err)
+    os.Exit(1)
+  }
+  token, _, err := config.LoadToken()
+  if err != nil {
+    fmt.Println("❌ not found token，please login first")
+    os.Exit(1)
+  }
+  client.Profile(serverURL+ProfilePath, token)
 }
 
-func register(url, username, password string) {
-	reqBody := model.RegisterRequest{
-		Username:         username,
-		Password:         password,
-		UserType:         1,
-		VerificationType: 0, // 不验证邮箱
-	}
+func handlePush() {
+  repo, err := utils.GetRepoName()
+  if err != nil {
+    fmt.Println("❌", err)
+    os.Exit(1)
+  }
 
-	jsonData, _ := json.Marshal(reqBody)
+  serverURL, err := config.LoadConfig()
+  if err != nil {
+    fmt.Println("❌ Failed to load config:", err)
+    os.Exit(1)
+  }
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Println("❌ Failed:", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
+  token, _, err := config.LoadToken()
+  if err != nil {
+    fmt.Println("❌ Not logged in. Please login first.")
+    os.Exit(1)
+  }
 
-	body, _ := io.ReadAll(resp.Body)
-	var apiResp model.APIResponse
-	json.Unmarshal(body, &apiResp)
+  remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
+  if err != nil {
+    fmt.Println("❌ Failed to fetch remote files:", err)
+    os.Exit(1)
+  }
 
-	if apiResp.Ok {
-		fmt.Println("✅ Successfully!")
-	} else {
-		fmt.Printf("❌ Failed: %s\n", string(body))
-		if data, ok := apiResp.Data.([]interface{}); ok {
-			for _, item := range data {
-				if fieldMap, ok := item.(map[string]interface{}); ok {
-					field := fieldMap["field"]
-					messages := fieldMap["messages"]
-					fmt.Println("error:", field, " ", messages)
+  localFiles, err := utils.ScanLocalFiles(".")
+  if err != nil {
+    fmt.Println("❌ Failed to scan local files:", err)
+    os.Exit(1)
+  }
 
-				}
-			}
-		}
-	}
+  uploadList := client.CompareForUpload(localFiles, remoteFiles)
+
+  for _, file := range uploadList {
+    fmt.Printf("📤 Uploading: %s\n", file.Path)
+    err := client.UploadFile(serverURL, token, repo, file.Path)
+    if err != nil {
+      fmt.Printf("❌ Upload failed for %s: %v\n", file.Path, err)
+    } else {
+      fmt.Printf("✅ Uploaded: %s\n", file.Path)
+    }
+  }
 }
 
-func login(url, username, password string) {
-	reqBody := model.LoginRequest{
-		Username: username,
-		Password: password,
-	}
+func handlePull() {
+  repo, err := utils.GetRepoName()
+  if err != nil {
+    fmt.Println("❌", err)
+    os.Exit(1)
+  }
 
-	jsonData, _ := json.Marshal(reqBody)
+  serverURL, err := config.LoadConfig()
+  if err != nil {
+    fmt.Println("❌ Failed to load config:", err)
+    os.Exit(1)
+  }
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Println("❌ Failed:", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
+  token, _, err := config.LoadToken()
+  if err != nil {
+    fmt.Println("❌ Not logged in. Please login first.")
+    os.Exit(1)
+  }
 
-	body, _ := io.ReadAll(resp.Body)
-	var apiResp model.APIResponse
-	json.Unmarshal(body, &apiResp)
+  remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
+  if err != nil {
+    fmt.Println("❌ Failed to fetch remote files:", err)
+    os.Exit(1)
+  }
 
-	if apiResp.Ok {
-		fmt.Println("✅ Successfully!")
-		// 解析 data 字段
-		data, ok := apiResp.Data.(map[string]interface{})
-		if !ok {
-			fmt.Println("❌ Failed to parse data field")
-			os.Exit(1)
-		}
+  localFiles, err := utils.ScanLocalFiles(".")
+  if err != nil {
+    fmt.Println("❌ Failed to scan local files:", err)
+    os.Exit(1)
+  }
 
-		token, _ := data["token"].(string)
-		refreshToken, _ := data["refresh_token"].(string)
+  downloadList := client.CompareForDownload(localFiles, remoteFiles)
 
-		// 保存 token 到配置文件
-		if err := config.SaveToken(token, refreshToken); err != nil {
-			fmt.Println("❌ Failed to save token:", err)
-			os.Exit(1)
-		}
-	} else {
-		fmt.Printf("❌ Failed: %s\n", string(body))
-	}
+  for _, file := range downloadList {
+    fmt.Printf("📥 Downloading: %s\n", file.Path)
+    err := client.DownloadFile(serverURL, token, repo, file.Path)
+    if err != nil {
+      fmt.Printf("❌ Download failed for %s: %v\n", file.Path, err)
+    } else {
+      fmt.Printf("✅ Downloaded: %s\n", file.Path)
+    }
+  }
 }
 
-func profile(url string, token string) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+func handleStatus() {
+  repo, err := utils.GetRepoName()
+  if err != nil {
+    fmt.Println("❌", err)
+    os.Exit(1)
+  }
 
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("❌ Failed:", err)
-		return
-	}
-	defer resp.Body.Close()
+  serverURL, err := config.LoadConfig()
+  if err != nil {
+    fmt.Println("❌ Failed to load config:", err)
+    os.Exit(1)
+  }
 
-	body, _ := io.ReadAll(resp.Body)
-	var apiResp model.APIResponse
-	json.Unmarshal(body, &apiResp)
+  token, _, err := config.LoadToken()
+  if err != nil {
+    fmt.Println("❌ Not logged in. Please login first.")
+    os.Exit(1)
+  }
 
-	if apiResp.Ok {
-		fmt.Println("✅ Successfully!")
-		fmt.Println(string(body))
-	} else {
-		fmt.Println("❌ Failed")
-		hlog.Errorf(string(body))
-	}
+  remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
+  if err != nil {
+    fmt.Println("❌ Failed to fetch remote files:", err)
+    os.Exit(1)
+  }
 
+  localFiles, err := utils.ScanLocalFiles(".")
+  if err != nil {
+    fmt.Println("❌ Failed to scan local files:", err)
+    os.Exit(1)
+  }
+
+  toUpload := client.CompareForUpload(localFiles, remoteFiles)
+  toDownload := client.CompareForDownload(localFiles, remoteFiles)
+
+  fmt.Println("🟢 Files to upload:")
+  for _, f := range toUpload {
+    fmt.Println("  +", f.Path)
+  }
+
+  fmt.Println("🔵 Files to download:")
+  for _, f := range toDownload {
+    fmt.Println("  -", f.Path)
+  }
 }

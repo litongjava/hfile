@@ -19,3 +19,9 @@ type APIResponse struct {
 	Error *string     `json:"error"`
 	Data  interface{} `json:"data"`
 }
+
+type FileMeta struct {
+	Path    string `json:"path"`
+	Hash    string `json:"hash"`
+	ModTime int64  `json:"mod_time"`
+}
