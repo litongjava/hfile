@@ -1,14 +1,14 @@
 package model
 
 type RegisterRequest struct {
-	Email            string `json:"email"`
+	Username         string `json:"username"`
 	Password         string `json:"password"`
 	UserType         int    `json:"user_type"`
 	VerificationType int    `json:"verification_type"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 

@@ -127,11 +127,11 @@ func handleInitLocal() {
 
 func handleRegister() {
 	if len(os.Args) < 4 {
-		fmt.Println("❌ 缺少参数。用法: hftp register <email> <password>")
+		fmt.Println("❌ 缺少参数。用法: hftp register <username> <password>")
 		os.Exit(1)
 	}
 
-	email := os.Args[2]
+	username := os.Args[2]
 	password := os.Args[3]
 
 	serverURL, err := config.LoadConfig()
@@ -141,7 +141,7 @@ func handleRegister() {
 	}
 
 	fmt.Printf("🔧 使用服务器地址: %s\n", serverURL)
-	register(serverURL+RegisterPath, email, password)
+	register(serverURL+RegisterPath, username, password)
 }
 
 func handleLogin() {
@@ -150,7 +150,7 @@ func handleLogin() {
 		os.Exit(1)
 	}
 
-	email := os.Args[2]
+	username := os.Args[2]
 	password := os.Args[3]
 
 	serverURL, err := config.LoadConfig()
@@ -159,13 +159,13 @@ func handleLogin() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("🔧 使用服务器地址: %s\n", serverURL)
-	login(serverURL+LoginPath, email, password)
+	fmt.Printf("🔧 server url: %s\n", serverURL)
+	login(serverURL+LoginPath, username, password)
 }
 
-func register(url, email, password string) {
+func register(url, username, password string) {
 	reqBody := model.RegisterRequest{
-		Email:            email,
+		Username:         username,
 		Password:         password,
 		UserType:         1,
 		VerificationType: 0, // 不验证邮箱
@@ -175,7 +175,7 @@ func register(url, email, password string) {
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("❌ 注册请求失败:", err)
+		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
@@ -193,18 +193,17 @@ func register(url, email, password string) {
 				if fieldMap, ok := item.(map[string]interface{}); ok {
 					field := fieldMap["field"]
 					messages := fieldMap["messages"]
-					if field == "password" {
-						fmt.Println("密码错误:", messages)
-					}
+					fmt.Println("error:", field, " ", messages)
+
 				}
 			}
 		}
 	}
 }
 
-func login(url, email, password string) {
+func login(url, username, password string) {
 	reqBody := model.LoginRequest{
-		Email:    email,
+		Username: username,
 		Password: password,
 	}
 
