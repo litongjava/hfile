@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 const ChunkSize = 10 * 1024 * 1024 // 10 MB
@@ -282,18 +283,45 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 		return fmt.Errorf("status code:%d", resp.StatusCode)
 	}
 
+	// 获取服务器端的文件修改时间
+	lastModified := resp.Header.Get("Last-Modified")
+	var serverModTime time.Time
+	if lastModified != "" {
+		// 尝试多种时间格式解析
+		formats := []string{"Mon, 2 Jan 2006 15:04:05 MST"}
+
+		var parseErr error
+		for _, format := range formats {
+			serverModTime, parseErr = time.Parse(format, lastModified)
+			if parseErr == nil {
+				break
+			}
+		}
+
+		if parseErr != nil {
+			hlog.Warnf("Failed to parse Last-Modified header with all formats: %v, value: %s", parseErr, lastModified)
+		}
+	}
 	mode := os.O_CREATE | os.O_WRONLY
 	if start > 0 {
 		mode |= os.O_APPEND
 	}
 
-	file, err := os.OpenFile(localPath, mode, 0644)
+	file, err := os.OpenFile(localPath, mode, 0755)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, resp.Body)
+
+	// 设置本地文件的修改时间与服务器端一致
+	if !serverModTime.IsZero() {
+		err = os.Chtimes(localPath, time.Now(), serverModTime)
+		if err != nil {
+			hlog.Warnf("Failed to set file mod time: %v", err)
+		}
+	}
 	return err
 }
 

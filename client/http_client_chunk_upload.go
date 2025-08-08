@@ -10,7 +10,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 )
 
@@ -30,12 +29,11 @@ func UploadInChunks(serverURL, token, repo, filePath string) error {
 	fileSize := fileInfo.Size()
 	totalParts := int((fileSize + ChunkSize - 1) / ChunkSize)
 	modTime := fileInfo.ModTime().Unix()
-	fileName := filepath.Base(filePath)
 
 	hlog.Infof("Start chunk upload: file=%s, size=%d, chunks=%d", filePath, fileSize, totalParts)
 
 	// 1. 初始化分片上传，获取upload_id
-	uploadID, err := initChunkedUpload(serverURL, token, repo, fileName, fileSize, totalParts, modTime)
+	uploadID, err := initChunkedUpload(serverURL, token, repo, filePath, fileSize, totalParts, modTime)
 	if err != nil {
 		return fmt.Errorf("failed to init chunked upload: %w", err)
 	}
@@ -54,7 +52,7 @@ func UploadInChunks(serverURL, token, repo, filePath string) error {
 			return fmt.Errorf("failed to read chunk %d: %w", partIndex, err)
 		}
 
-		err = uploadChunk(serverURL, token, repo, uploadID, partIndex, chunk, fileName)
+		err = uploadChunk(serverURL, token, repo, uploadID, partIndex, chunk, filePath)
 		if err != nil {
 			return fmt.Errorf("failed to upload chunk %d: %w", partIndex, err)
 		}
@@ -77,6 +75,7 @@ func initChunkedUpload(serverURL, token, repo, fileName string, fileSize int64, 
 	url := fmt.Sprintf("%s/file/upload/init?repo=%s", serverURL, repo)
 
 	reqBody := map[string]interface{}{
+		"repo":              repo,
 		"file_name":         fileName,
 		"file_size":         fileSize,
 		"total_parts":       totalParts,
