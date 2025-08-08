@@ -211,7 +211,7 @@ func UploadFile(serverURL, token, repo, filePath string, modTime int64) error {
 	}
 
 	if fileInfo.Size() > 100*1024*1024 {
-		return uploadInChunks(serverURL, token, repo, filePath)
+		return UploadInChunks(serverURL, token, repo, filePath)
 	}
 
 	url := fmt.Sprintf("%s/file/upload?repo=%s", serverURL, repo)
@@ -243,12 +243,6 @@ func UploadFile(serverURL, token, repo, filePath string, modTime int64) error {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upload failed: %s", string(body))
 	}
-	return nil
-}
-
-func uploadInChunks(serverURL, token, repo, filePath string) error {
-	// 实现分片上传逻辑，调用 /file/upload/slice 接口
-	// 略
 	return nil
 }
 
