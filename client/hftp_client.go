@@ -185,7 +185,7 @@ func UploadFile(serverURL, token, repo, filePath string) error {
 
   body := &bytes.Buffer{}
   writer := multipart.NewWriter(body)
-  part, _ := writer.CreateFormFile("file", filepath.Base(filePath))
+  part, _ := writer.CreateFormFile("file", filePath)
   io.Copy(part, file)
   writer.Close()
 

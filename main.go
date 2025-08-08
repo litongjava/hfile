@@ -99,7 +99,7 @@ func handleInit() {
     fmt.Printf("❌ Failed: %v\n", err)
     os.Exit(1)
   }
-  err := os.Mkdir(".hfile", 0755)
+  err := os.Mkdir(".hfile", 755)
   if err != nil {
     hlog.Error("Failed:", err.Error())
   }
@@ -121,6 +121,7 @@ func handleInitLocal() {
   }
 
   // 创建当前目录的配置文件
+  os.Mkdir(".hfile", 755)
   configFilePath := filepath.Join(".hfile", "config.toml")
   file, err := os.Create(configFilePath)
   if err != nil {

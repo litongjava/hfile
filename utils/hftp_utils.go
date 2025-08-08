@@ -44,6 +44,10 @@ func ScanLocalFiles(root string) (map[string]model.FileMeta, error) {
     }
 
     relPath, _ := filepath.Rel(root, path)
+    // Skip the ignore file
+    if relPath == ".hfileignore" {
+      return nil
+    }
     if strings.HasPrefix(relPath, ".hfile") {
       return nil
     }
