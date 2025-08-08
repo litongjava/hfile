@@ -114,10 +114,13 @@ func Profile(url string, token string) {
 	json.Unmarshal(body, &apiResp)
 
 	if apiResp.Ok {
+		bytes, err := json.MarshalIndent(apiResp.Data.(interface{}), "", "  ")
+		if err != nil {
+			hlog.Error(err.Error())
+		}
 		fmt.Println("✅ Successfully!")
-		fmt.Println(string(body))
+		fmt.Println(string(bytes))
 	} else {
-		fmt.Println("❌ Failed")
 		hlog.Errorf(string(body))
 	}
 }
@@ -140,11 +143,10 @@ func RepoList(url string, token string) {
 
 	if apiResp.Ok {
 		fmt.Println("✅ Successfully!")
-		repos := apiResp.Data.([]string)
+		repos := apiResp.Data.([]interface{})
 		for i, repo := range repos {
-			fmt.Println("[%d] %s\n", i+1, repo)
+			fmt.Printf("[%d] %s\n", i+1, repo)
 		}
-		fmt.Println(string(body))
 	} else {
 		fmt.Println("❌ Failed")
 		hlog.Errorf(string(body))

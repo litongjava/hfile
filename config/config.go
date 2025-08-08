@@ -77,7 +77,7 @@ func LoadConfig(repoDir string) (string, error) {
 // loadFromRepoDir loads config from current directory
 func loadFromRepoDir(repoDir string) (string, error) {
 	configPath := filepath.Join(repoDir, ".hfile", "config.toml")
-
+	hlog.Info(configPath)
 	// Check if file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("config file not found in current directory")

@@ -16,6 +16,7 @@ const (
 	RegisterPath = "/api/v1/register"
 	LoginPath    = "/api/v1/login"
 	ProfilePath  = "/api/v1/user/profile"
+	RepoListPath = "/repo/list"
 )
 
 func main() {
@@ -60,9 +61,9 @@ func main() {
 		subCmd := os.Args[2]
 		switch subCmd {
 		case "list":
-			repoDir := os.Args[2]
-			if repoDir == "" {
-				repoDir = "."
+			var repoDir = "."
+			if len(os.Args) > 3 {
+				repoDir = os.Args[3]
 			}
 			handleListRepos(repoDir)
 			return
@@ -74,9 +75,9 @@ func main() {
 	}
 
 	// 处理其他主命令
-	repoDir := os.Args[2]
-	if repoDir == "" {
-		repoDir = "."
+	repoDir := "."
+	if len(os.Args) > 3 {
+		repoDir = os.Args[2]
 	}
 
 	switch cmd {
@@ -242,7 +243,7 @@ func handleListRepos(repoDir string) {
 		fmt.Println("❌ not found token，please login first")
 		os.Exit(1)
 	}
-	client.RepoList(serverURL+ProfilePath, token)
+	client.RepoList(serverURL+RepoListPath, token)
 }
 
 func handlePush(repoDir string) {
