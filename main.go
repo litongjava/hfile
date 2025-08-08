@@ -29,7 +29,7 @@ func main() {
 	// 处理 config 子命令
 	if cmd == "config" {
 		if len(os.Args) < 3 {
-			fmt.Println("❌ 缺少 config 子命令")
+			fmt.Println("❌Missing config subcommand")
 			printConfigUsage()
 			os.Exit(1)
 		}
@@ -44,7 +44,30 @@ func main() {
 			config.ListConfigs(repoDir)
 			return
 		default:
-			fmt.Printf("❌ 无效的 config 子命令: %s\n", subCmd)
+			fmt.Printf("❌ Invalid config subcommand: %s\n", subCmd)
+			printConfigUsage()
+			os.Exit(1)
+		}
+	}
+
+	if cmd == "repo" {
+		if len(os.Args) < 3 {
+			fmt.Println("❌ Missing repo subcommand")
+			printConfigUsage()
+			os.Exit(1)
+		}
+
+		subCmd := os.Args[2]
+		switch subCmd {
+		case "list":
+			repoDir := os.Args[2]
+			if repoDir == "" {
+				repoDir = "."
+			}
+			handleListRepos(repoDir)
+			return
+		default:
+			fmt.Printf("❌ Invalid config subcommand: %s\n", subCmd)
 			printConfigUsage()
 			os.Exit(1)
 		}
@@ -89,6 +112,7 @@ func printUsage() {
 	fmt.Println("  hfile init [server_url]          # 初始化用户主目录配置文件")
 	fmt.Println("  hfile init-local [server_url]    # 初始化当前目录配置文件")
 	fmt.Println("  hfile config list                # 显示所有配置信息")
+	fmt.Println("  hfile repo list                # show all repository")
 	fmt.Println("  hfile register <email> <password>       # 注册用户")
 	fmt.Println("  hfile login <email> <password>          # 用户登录")
 	fmt.Println("  hfile push                       # 推送本地变更到远程")
@@ -205,6 +229,20 @@ func handleProfile(repoDir string) {
 		os.Exit(1)
 	}
 	client.Profile(serverURL+ProfilePath, token)
+}
+
+func handleListRepos(repoDir string) {
+	serverURL, err := config.LoadConfig(repoDir)
+	if err != nil {
+		fmt.Println("❌ Failed:", err)
+		os.Exit(1)
+	}
+	token, _, err := config.LoadToken()
+	if err != nil {
+		fmt.Println("❌ not found token，please login first")
+		os.Exit(1)
+	}
+	client.RepoList(serverURL+ProfilePath, token)
 }
 
 func handlePush(repoDir string) {

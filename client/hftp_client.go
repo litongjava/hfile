@@ -120,7 +120,35 @@ func Profile(url string, token string) {
 		fmt.Println("❌ Failed")
 		hlog.Errorf(string(body))
 	}
+}
 
+func RepoList(url string, token string) {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("❌ Failed:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var apiResp model.APIResponse
+	json.Unmarshal(body, &apiResp)
+
+	if apiResp.Ok {
+		fmt.Println("✅ Successfully!")
+		repos := apiResp.Data.([]string)
+		for i, repo := range repos {
+			fmt.Println("[%d] %s\n", i+1, repo)
+		}
+		fmt.Println(string(body))
+	} else {
+		fmt.Println("❌ Failed")
+		hlog.Errorf(string(body))
+	}
 }
 
 func FetchRemoteFiles(serverURL, token, repo string) (map[string]model.FileMeta, error) {
