@@ -11,7 +11,11 @@ import (
 	"strings"
 )
 
-func GetRepoName(dir string) (string, error) {
+func GetRepoName(startDir string) (string, error) {
+	dir, err := filepath.Abs(startDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for %s: %w", startDir, err)
+	}
 
 	for {
 		if _, err := os.Stat(filepath.Join(dir, ".hfile")); err == nil {

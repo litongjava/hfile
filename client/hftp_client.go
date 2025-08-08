@@ -284,6 +284,10 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 		return nil
 	}
 
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("status code:%d", resp.StatusCode)
+	}
+
 	mode := os.O_CREATE | os.O_WRONLY
 	if start > 0 {
 		mode |= os.O_APPEND
