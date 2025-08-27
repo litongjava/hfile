@@ -88,9 +88,13 @@ func main() {
 	case "register":
 		handleRegister(repoDir)
 	case "login":
-		repoDir := os.Args[4]
-		if repoDir == "" {
+		if len(os.Args) < 5 {
 			repoDir = "."
+		} else {
+			repoDir := os.Args[4]
+			if repoDir == "" {
+				repoDir = "."
+			}
 		}
 		handleLogin(repoDir)
 	case "profile":
