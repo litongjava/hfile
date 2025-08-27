@@ -67,6 +67,7 @@ go install github.com/litongjava/hfile@latest
 *   `hfile pull`: Fetches the list of files from the server and downloads files that are new or updated on the server compared to the local files.
 *   `hfile status`: Shows a list of files that would be uploaded (`push`) or downloaded (`pull`) during the next synchronization.
 *   `hfile config list`: Displays the currently active configuration and details from potential configuration files.
+*   `hfile repo list`: Show all repositories.
 
 ## Configuration
 
