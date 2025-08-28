@@ -347,12 +347,13 @@ func handlePull(repoDir string) {
 	downloadList := client.CompareForDownload(localFiles, remoteFiles)
 
 	for _, file := range downloadList {
-		fmt.Printf("📥 Downloading: %s\n", file.Path)
-		err := client.DownloadFile(serverURL, token, repo, file.Path)
+		relPath := file.Path
+		fmt.Printf("📥 Downloading: %s\n", relPath)
+		err := client.DownloadFile(serverURL, token, repo, relPath)
 		if err != nil {
-			fmt.Printf("❌ Download failed for %s: %v\n", file.Path, err)
+			fmt.Printf("❌ Download failed for %s: %v\n", relPath, err)
 		} else {
-			fmt.Printf("✅ Downloaded: %s\n", file.Path)
+			fmt.Printf("✅ Downloaded: %s\n", relPath)
 		}
 	}
 }

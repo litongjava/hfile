@@ -12,6 +12,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -261,15 +262,15 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-
-	url := fmt.Sprintf("%s/file/download?repo=%s&file=%s", serverURL, repo, remotePath)
+	escape := url.QueryEscape(remotePath)
+	tagetUrl := fmt.Sprintf("%s/file/download?repo=%s&file=%s", serverURL, repo, escape)
 
 	var start int64 = 0
 	if stat, err := os.Stat(localPath); err == nil {
 		start = stat.Size()
 	}
 
-	req, _ := http.NewRequest("GET", url, nil)
+	req, _ := http.NewRequest("GET", tagetUrl, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if start > 0 {
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", start))
