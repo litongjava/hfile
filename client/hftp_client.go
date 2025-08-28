@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
@@ -168,7 +169,8 @@ func FetchRemoteFiles(serverURL, token, repo string) (map[string]model.FileMeta,
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("server error: %s", string(body))
+		bodyString := string(body)
+		return nil, fmt.Errorf("server error: %d %s", resp.StatusCode, bodyString)
 	}
 
 	var apiResp model.APIResponse
@@ -205,18 +207,18 @@ func FetchRemoteFiles(serverURL, token, repo string) (map[string]model.FileMeta,
 	return remoteMap, nil
 }
 
-func UploadFile(serverURL, token, repo, filePath string, modTime int64) error {
-	fileInfo, err := os.Stat(filePath)
+func UploadFile(serverURL, token, repo, relpath, localFilePath string, modTime int64) error {
+	fileInfo, err := os.Stat(localFilePath)
 	if err != nil {
 		return err
 	}
 
 	if fileInfo.Size() > 100*1024*1024 {
-		return UploadInChunks(serverURL, token, repo, filePath)
+		return UploadInChunks(serverURL, token, repo, localFilePath)
 	}
 
 	url := fmt.Sprintf("%s/file/upload?repo=%s", serverURL, repo)
-	file, err := os.Open(filePath)
+	file, err := os.Open(localFilePath)
 	if err != nil {
 		return err
 	}
@@ -224,9 +226,15 @@ func UploadFile(serverURL, token, repo, filePath string, modTime int64) error {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, _ := writer.CreateFormFile("file", filePath)
+	fileName := filepath.Base(relpath)
+	part, err := writer.CreateFormFile("file", fileName)
+	if err != nil {
+		encodedPath := base64.URLEncoding.EncodeToString([]byte(localFilePath))
+		_ = writer.WriteField("original_path_encoded", encodedPath)
+	}
 	io.Copy(part, file)
 	_ = writer.WriteField("original_mod_time", strconv.FormatInt(modTime, 10))
+	_ = writer.WriteField("rel_path", relpath)
 	writer.Close()
 
 	req, _ := http.NewRequest("POST", url, body)

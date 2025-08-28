@@ -19,7 +19,12 @@
 # Example using go install (requires Go environment setup)
 go install github.com/litongjava/hfile@latest
 ```
-
+or
+```shell
+git clone https://github.com/litongjava/hfile.git
+cd hfile
+go install
+```
 ## Quick Start
 
 1.  **Initialize Configuration**: Set up the server URL. You can initialize globally or for the current directory.

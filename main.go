@@ -76,16 +76,20 @@ func main() {
 
 	// 处理其他主命令
 	repoDir := "."
-	if len(os.Args) > 3 {
-		repoDir = os.Args[2]
-	}
 
 	switch cmd {
 	case "init":
 		handleInit()
 	case "init-local":
+		if len(os.Args) > 2 {
+			repoDir = os.Args[2]
+		}
 		handleInitLocal(repoDir)
 	case "register":
+		if len(os.Args) > 4 {
+			repoDir = os.Args[4]
+		}
+
 		handleRegister(repoDir)
 	case "login":
 		if len(os.Args) < 5 {
@@ -98,12 +102,24 @@ func main() {
 		}
 		handleLogin(repoDir)
 	case "profile":
+		if len(os.Args) > 2 {
+			repoDir = os.Args[2]
+		}
 		handleProfile(repoDir)
 	case "push":
+		if len(os.Args) > 2 {
+			repoDir = os.Args[2]
+		}
 		handlePush(repoDir)
 	case "pull":
+		if len(os.Args) > 2 {
+			repoDir = os.Args[2]
+		}
 		handlePull(repoDir)
 	case "status":
+		if len(os.Args) > 3 {
+			repoDir = os.Args[2]
+		}
 		handleStatus(repoDir)
 	default:
 		fmt.Println("❌ 无效命令:", cmd)
@@ -271,7 +287,7 @@ func handlePush(repoDir string) {
 
 	remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
 	if err != nil {
-		fmt.Println("❌ Failed to fetch remote files:", err)
+		fmt.Println("❌ Failed to fetch remote files:", err.Error())
 		os.Exit(1)
 	}
 
@@ -284,12 +300,15 @@ func handlePush(repoDir string) {
 	uploadList := client.CompareForUpload(localFiles, remoteFiles)
 
 	for _, file := range uploadList {
-		fmt.Printf("📤 Uploading: %s\n", file.Path)
-		err := client.UploadFile(serverURL, token, repo, file.Path, file.ModTime)
+		relpath := file.Path
+		fmt.Printf("📤 Uploading: %s\n", relpath)
+		localFilePath := filepath.Join(repoDir, relpath)
+
+		err := client.UploadFile(serverURL, token, repo, relpath, localFilePath, file.ModTime)
 		if err != nil {
-			fmt.Printf("❌ Upload failed for %s: %v\n", file.Path, err)
+			fmt.Printf("❌ Upload failed for %v\n", err)
 		} else {
-			fmt.Printf("✅ Uploaded: %s\n", file.Path)
+			fmt.Printf("✅ Uploaded: %s\n", relpath)
 		}
 	}
 }

@@ -62,15 +62,18 @@ func InitConfig(serverURL string) error {
 func LoadConfig(repoDir string) (string, error) {
 	// 1. Check repo directory config
 	if serverURL, err := loadFromRepoDir(repoDir); err == nil && serverURL != "" {
+		hlog.Info("serverURL:", serverURL)
 		return serverURL, nil
 	}
 
 	// 2. Check user home directory config
 	if serverURL, err := loadFromHomeDir(); err == nil && serverURL != "" {
+		hlog.Info("serverURL:", serverURL)
 		return serverURL, nil
 	}
 
 	// 3. Return default URL
+	hlog.Info("serverURL:", constant.ServerURL)
 	return constant.ServerURL, nil
 }
 
