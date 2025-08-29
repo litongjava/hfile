@@ -311,16 +311,21 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, resp.Body)
+	written, err := io.Copy(file, resp.Body)
+	if err != nil {
+		return err
+	}
+	hlog.Info("written:", written)
 
 	// 设置本地文件的修改时间与服务器端一致
 	if !serverModTime.IsZero() {
 		err = os.Chtimes(localPath, time.Now(), serverModTime)
 		if err != nil {
 			hlog.Warnf("Failed to set file mod time: %v", err)
+			return err
 		}
 	}
-	return err
+	return nil
 }
 
 func CompareForUpload(localFiles, remoteFiles map[string]model.FileMeta) []model.FileMeta {
