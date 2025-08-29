@@ -288,7 +288,7 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 		return nil
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode > 300 && resp.StatusCode < 200 {
 		return fmt.Errorf("status code:%d", resp.StatusCode)
 	}
 
