@@ -265,16 +265,8 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 	escape := url.QueryEscape(remotePath)
 	tagetUrl := fmt.Sprintf("%s/file/download?repo=%s&file=%s", serverURL, repo, escape)
 
-	var start int64 = 0
-	if stat, err := os.Stat(localPath); err == nil {
-		start = stat.Size()
-	}
-
 	req, _ := http.NewRequest("GET", tagetUrl, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	if start > 0 {
-		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", start))
-	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -312,9 +304,6 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 		}
 	}
 	mode := os.O_CREATE | os.O_WRONLY
-	if start > 0 {
-		mode |= os.O_APPEND
-	}
 
 	file, err := os.OpenFile(localPath, mode, 0755)
 	if err != nil {
