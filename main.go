@@ -209,7 +209,7 @@ func handleRegister(repoDir string) {
 	username := os.Args[2]
 	password := os.Args[3]
 
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ 加载配置失败:", err)
 		os.Exit(1)
@@ -228,7 +228,7 @@ func handleLogin(repoDir string) {
 	username := os.Args[2]
 	password := os.Args[3]
 
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
@@ -239,21 +239,21 @@ func handleLogin(repoDir string) {
 }
 
 func handleProfile(repoDir string) {
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
 	}
-	token, _, err := config.LoadToken()
+	cfg, err := config.LoadConfig(repoDir)
 	if err != nil {
 		fmt.Println("❌ not found token，please login first")
 		os.Exit(1)
 	}
-	client.Profile(serverURL+ProfilePath, token)
+	client.Profile(serverURL+ProfilePath, cfg)
 }
 
 func handleListRepos(repoDir string) {
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
@@ -273,7 +273,7 @@ func handlePush(repoDir string) {
 		os.Exit(1)
 	}
 
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ Failed to load config:", err)
 		os.Exit(1)
@@ -320,7 +320,7 @@ func handlePull(repoDir string) {
 		os.Exit(1)
 	}
 
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ Failed to load config:", err)
 		os.Exit(1)
@@ -365,7 +365,7 @@ func handleStatus(repoDir string) {
 		os.Exit(1)
 	}
 
-	serverURL, err := config.LoadConfig(repoDir)
+	serverURL, err := config.GetServerUrl(repoDir)
 	if err != nil {
 		fmt.Println("❌ Failed to load config:", err)
 		os.Exit(1)

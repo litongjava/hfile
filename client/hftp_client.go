@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/litongjava/hfile/auth"
 	"github.com/litongjava/hfile/config"
 	"github.com/litongjava/hfile/model"
 	"io"
@@ -100,9 +101,14 @@ func Login(url, username, password string) {
 	}
 }
 
-func Profile(url string, token string) {
+func Profile(url string, cfg config.Config) {
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
+	token, err := GetToken(url, cfg.RefreshToken)
+	if err != nil {
+		hlog.Error(err.Error())
+		return
+	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := client.Do(req)
@@ -128,6 +134,64 @@ func Profile(url string, token string) {
 	}
 }
 
+func RefreshToken(url string, refreshToken string) (string, error) {
+	var client = &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("refresh_token", refreshToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		hlog.Error(err.Error())
+		return "", err
+	}
+
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var apiResp model.APIResponse
+	json.Unmarshal(body, &apiResp)
+
+	if apiResp.Ok {
+		fmt.Println("✅ Successfully!")
+		data, ok := apiResp.Data.(map[string]interface{})
+		if !ok {
+			fmt.Println("❌ Failed to parse data field")
+			os.Exit(1)
+		}
+		token := data["token"].(string)
+		// 保存 token 到配置文件
+		if err := config.SaveToken(token, refreshToken); err != nil {
+			fmt.Println("❌ Failed to save token:", err)
+			os.Exit(1)
+		}
+		return token, nil
+	} else {
+		return "", fmt.Errorf(string(body)+": %v", err)
+	}
+}
+
+func GetToken(url string, refreshToken string) (string, error) {
+	token, _, err := config.LoadToken()
+	if err != nil {
+		fmt.Println("❌ Not logged in. Please login first.")
+		os.Exit(1)
+	}
+
+	isExpired, _, err := auth.IsJWTExpired(token)
+	if err != nil {
+		panic(err)
+	}
+	isExpired, _, err = auth.IsJWTExpired(token)
+
+	if err != nil {
+		panic(err)
+	}
+	if isExpired {
+		return RefreshToken(url, refreshToken)
+	}
+
+	return token, nil
+
+}
 func RepoList(url string, token string) {
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)

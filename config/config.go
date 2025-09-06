@@ -58,10 +58,10 @@ func InitConfig(serverURL string) error {
 	return nil
 }
 
-// LoadConfig loads config file with priority: current dir > ~/.hfile/config.toml > default
-func LoadConfig(repoDir string) (string, error) {
+// GetServerUrl loads config file with priority: current dir > ~/.hfile/config.toml > default
+func GetServerUrl(repoDir string) (string, error) {
 	// 1. Check repo directory config
-	if serverURL, err := loadFromRepoDir(repoDir); err == nil && serverURL != "" {
+	if serverURL, err := loadServerUrlFromRepoDir(repoDir); err == nil && serverURL != "" {
 		hlog.Info("serverURL:", serverURL)
 		return serverURL, nil
 	}
@@ -77,10 +77,9 @@ func LoadConfig(repoDir string) (string, error) {
 	return constant.ServerURL, nil
 }
 
-// loadFromRepoDir loads config from current directory
-func loadFromRepoDir(repoDir string) (string, error) {
+// loadServerUrlFromRepoDir loads config from current directory
+func loadServerUrlFromRepoDir(repoDir string) (string, error) {
 	configPath := filepath.Join(repoDir, ".hfile", "config.toml")
-	hlog.Info(configPath)
 	// Check if file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("config file not found in current directory")
@@ -127,7 +126,7 @@ func loadFromHomeDir() (string, error) {
 // ListConfigs displays all config information
 func ListConfigs(repoDir string) {
 	// Display active config
-	activeConfig, _ := LoadConfig(repoDir)
+	activeConfig, _ := GetServerUrl(repoDir)
 	fmt.Printf("activte server: %s\n", activeConfig)
 
 	// Display current directory config
@@ -298,6 +297,72 @@ func LoadToken() (string, string, error) {
 	}
 
 	return "", "", fmt.Errorf("no valid token configuration found")
+}
+
+func LoadConfig(repoDir string) (Config, error) {
+	// 1. Check current directory config
+	if cfg, err := loadConfigFromRepoDir(repoDir); err == nil {
+		return cfg, nil
+	}
+
+	// 2. Check user home directory config
+	if cfg, err := loadConfigFromHomeDir(); err == nil {
+		return cfg, nil
+	}
+
+	return Config{}, fmt.Errorf("no valid token configuration found")
+}
+
+// loadConfigFromCurrentDir loads token from current directory config file
+func loadConfigFromCurrentDir() (Config, error) {
+	configPath := filepath.Join(".hfile", "config.toml")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("config file not found in current directory")
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return Config{}, fmt.Errorf("failed to parse current directory config: %v", err)
+	}
+
+	return cfg, nil
+}
+
+func loadConfigFromRepoDir(repoDir string) (Config, error) {
+	configPath := filepath.Join(repoDir, ".hfile", "config.toml")
+	hlog.Info(configPath)
+	// Check if file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("config file not found in current directory")
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return Config{}, fmt.Errorf("failed to parse current directory config: %v", err)
+	}
+
+	return cfg, nil
+}
+
+func loadConfigFromHomeDir() (Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return Config{}, err
+	}
+
+	configPath := filepath.Join(homeDir, ".hfile", "config.toml")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("config file not found in user home directory")
+	}
+
+	var cfg Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return Config{}, fmt.Errorf("failed to parse user home directory config: %v", err)
+	}
+
+	return cfg, nil
 }
 
 // loadTokenFromCurrentDir loads token from current directory config file
