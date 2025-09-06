@@ -174,7 +174,7 @@ func handleInitLocal(repoDir string) {
 		serverURL = constant.ServerURL
 	}
 
-	localConfig := config.Config{
+	localConfig := config.AppConfig{
 		Server: serverURL,
 	}
 

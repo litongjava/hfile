@@ -101,10 +101,10 @@ func Login(url, username, password string) {
 	}
 }
 
-func Profile(url string, cfg config.Config) {
+func Profile(url string, cfg config.AppConfig) {
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
-	token, err := GetToken(url, cfg.RefreshToken)
+	token, err := GetToken(url, cfg)
 	if err != nil {
 		hlog.Error(err.Error())
 		return
@@ -169,27 +169,17 @@ func RefreshToken(url string, refreshToken string) (string, error) {
 	}
 }
 
-func GetToken(url string, refreshToken string) (string, error) {
-	token, _, err := config.LoadToken()
-	if err != nil {
-		fmt.Println("❌ Not logged in. Please login first.")
-		os.Exit(1)
-	}
+func GetToken(url string, cfg config.AppConfig) (string, error) {
 
-	isExpired, _, err := auth.IsJWTExpired(token)
-	if err != nil {
-		panic(err)
-	}
-	isExpired, _, err = auth.IsJWTExpired(token)
-
+	isExpired, _, err := auth.IsJWTExpired(cfg.Token)
 	if err != nil {
 		panic(err)
 	}
 	if isExpired {
-		return RefreshToken(url, refreshToken)
+		return RefreshToken(url, cfg.RefreshToken)
 	}
 
-	return token, nil
+	return cfg.Token, nil
 
 }
 func RepoList(url string, token string) {
