@@ -101,37 +101,16 @@ func Login(url, username, password string) {
 	}
 }
 
-func Profile(url string, cfg config.AppConfig) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	token, err := GetToken(url, cfg)
+func GetToken(url string, cfg config.AppConfig) (string, error) {
+
+	isExpired, _, err := auth.IsJWTExpired(cfg.Token)
 	if err != nil {
-		hlog.Error(err.Error())
-		return
+		panic(err)
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("❌ Failed:", err)
-		return
+	if isExpired {
+		return RefreshToken(url, cfg.RefreshToken)
 	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	var apiResp model.APIResponse
-	json.Unmarshal(body, &apiResp)
-
-	if apiResp.Ok {
-		bytes, err := json.MarshalIndent(apiResp.Data.(interface{}), "", "  ")
-		if err != nil {
-			hlog.Error(err.Error())
-		}
-		fmt.Println("✅ Successfully!")
-		fmt.Println(string(bytes))
-	} else {
-		hlog.Errorf(string(body))
-	}
+	return cfg.Token, nil
 }
 
 func RefreshToken(url string, refreshToken string) (string, error) {
@@ -169,20 +148,47 @@ func RefreshToken(url string, refreshToken string) (string, error) {
 	}
 }
 
-func GetToken(url string, cfg config.AppConfig) (string, error) {
-
-	isExpired, _, err := auth.IsJWTExpired(cfg.Token)
+func Profile(url string, cfg config.AppConfig) {
+	token, err := GetToken(url, cfg)
 	if err != nil {
-		panic(err)
-	}
-	if isExpired {
-		return RefreshToken(url, cfg.RefreshToken)
+		hlog.Error(err.Error())
+		return
 	}
 
-	return cfg.Token, nil
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", url, nil)
 
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("❌ Failed:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var apiResp model.APIResponse
+	json.Unmarshal(body, &apiResp)
+
+	if apiResp.Ok {
+		bytes, err := json.MarshalIndent(apiResp.Data.(interface{}), "", "  ")
+		if err != nil {
+			hlog.Error(err.Error())
+		}
+		fmt.Println("✅ Successfully!")
+		fmt.Println(string(bytes))
+	} else {
+		hlog.Errorf(string(body))
+	}
 }
-func RepoList(url string, token string) {
+
+func RepoList(url string, cfg config.AppConfig) {
+	token, err := GetToken(url, cfg)
+	if err != nil {
+		hlog.Error(err.Error())
+		return
+	}
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -210,7 +216,13 @@ func RepoList(url string, token string) {
 	}
 }
 
-func FetchRemoteFiles(serverURL, token, repo string) (map[string]model.FileMeta, error) {
+func FetchRemoteFiles(serverURL string, cfg config.AppConfig, repo string) (map[string]model.FileMeta, error) {
+	token, err := GetToken(serverURL, cfg)
+	if err != nil {
+		hlog.Error(err.Error())
+		return nil, err
+	}
+
 	url := fmt.Sprintf("%s/file/list?repo=%s", serverURL, repo)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -262,7 +274,13 @@ func FetchRemoteFiles(serverURL, token, repo string) (map[string]model.FileMeta,
 	return remoteMap, nil
 }
 
-func UploadFile(serverURL, token, repo, relpath, localFilePath string, modTime int64) error {
+func UploadFile(serverURL string, cfg config.AppConfig, repo, relpath, localFilePath string, modTime int64) error {
+	token, err := GetToken(serverURL, cfg)
+	if err != nil {
+		hlog.Error(err.Error())
+		return err
+	}
+
 	fileInfo, err := os.Stat(localFilePath)
 	if err != nil {
 		return err
@@ -310,7 +328,13 @@ func UploadFile(serverURL, token, repo, relpath, localFilePath string, modTime i
 	return nil
 }
 
-func DownloadFile(serverURL, token, repo, remotePath string) error {
+func DownloadFile(serverURL string, cfg config.AppConfig, repo, remotePath string) error {
+	token, err := GetToken(serverURL, cfg)
+	if err != nil {
+		hlog.Error(err.Error())
+		return err
+	}
+
 	localPath := remotePath
 	dir := filepath.Dir(localPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -380,32 +404,4 @@ func DownloadFile(serverURL, token, repo, remotePath string) error {
 		}
 	}
 	return nil
-}
-
-func CompareForUpload(localFiles, remoteFiles map[string]model.FileMeta) []model.FileMeta {
-	var result []model.FileMeta
-	for path, l := range localFiles {
-		if r, ok := remoteFiles[path]; ok {
-			if l.Hash != r.Hash && l.ModTime > r.ModTime {
-				result = append(result, l)
-			}
-		} else {
-			result = append(result, l)
-		}
-	}
-	return result
-}
-
-func CompareForDownload(local, remote map[string]model.FileMeta) []model.FileMeta {
-	var result []model.FileMeta
-	for path, r := range remote {
-		if l, ok := local[path]; ok {
-			if r.Hash != l.Hash && r.ModTime > l.ModTime {
-				result = append(result, r)
-			}
-		} else {
-			result = append(result, r)
-		}
-	}
-	return result
 }

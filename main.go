@@ -258,12 +258,17 @@ func handleListRepos(repoDir string) {
 		fmt.Println("❌ Failed:", err)
 		os.Exit(1)
 	}
-	token, _, err := config.LoadToken()
+	cfg, err := config.LoadConfig(repoDir)
 	if err != nil {
+		hlog.Error(err.Error())
+		os.Exit(1)
+	}
+	if cfg.Token == "" {
 		fmt.Println("❌ not found token，please login first")
 		os.Exit(1)
 	}
-	client.RepoList(serverURL+RepoListPath, token)
+
+	client.RepoList(serverURL+RepoListPath, cfg)
 }
 
 func handlePush(repoDir string) {
@@ -279,13 +284,17 @@ func handlePush(repoDir string) {
 		os.Exit(1)
 	}
 
-	token, _, err := config.LoadToken()
+	cfg, err := config.LoadConfig(repoDir)
 	if err != nil {
-		fmt.Println("❌ Not logged in. Please login first.")
+		hlog.Error(err.Error())
+		os.Exit(1)
+	}
+	if cfg.Token == "" {
+		fmt.Println("❌ not found token，please login first")
 		os.Exit(1)
 	}
 
-	remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
+	remoteFiles, err := client.FetchRemoteFiles(serverURL, cfg, repo)
 	if err != nil {
 		fmt.Println("❌ Failed to fetch remote files:", err.Error())
 		os.Exit(1)
@@ -297,14 +306,14 @@ func handlePush(repoDir string) {
 		os.Exit(1)
 	}
 
-	uploadList := client.CompareForUpload(localFiles, remoteFiles)
+	uploadList := utils.CompareForUpload(localFiles, remoteFiles)
 
 	for _, file := range uploadList {
 		relpath := file.Path
 		fmt.Printf("📤 Uploading: %s\n", relpath)
 		localFilePath := filepath.Join(repoDir, relpath)
 
-		err := client.UploadFile(serverURL, token, repo, relpath, localFilePath, file.ModTime)
+		err := client.UploadFile(serverURL, cfg, repo, relpath, localFilePath, file.ModTime)
 		if err != nil {
 			fmt.Printf("❌ Upload failed for %v\n", err)
 		} else {
@@ -314,6 +323,16 @@ func handlePush(repoDir string) {
 }
 
 func handlePull(repoDir string) {
+	cfg, err := config.LoadConfig(repoDir)
+	if err != nil {
+		hlog.Error(err.Error())
+		os.Exit(1)
+	}
+	if cfg.Token == "" {
+		fmt.Println("❌ not found token，please login first")
+		os.Exit(1)
+	}
+
 	repo, err := utils.GetRepoName(repoDir)
 	if err != nil {
 		fmt.Println("❌", err)
@@ -326,13 +345,7 @@ func handlePull(repoDir string) {
 		os.Exit(1)
 	}
 
-	token, _, err := config.LoadToken()
-	if err != nil {
-		fmt.Println("❌ Not logged in. Please login first.")
-		os.Exit(1)
-	}
-
-	remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
+	remoteFiles, err := client.FetchRemoteFiles(serverURL, cfg, repo)
 	if err != nil {
 		fmt.Println("❌ Failed to fetch remote files:", err)
 		os.Exit(1)
@@ -344,12 +357,12 @@ func handlePull(repoDir string) {
 		os.Exit(1)
 	}
 
-	downloadList := client.CompareForDownload(localFiles, remoteFiles)
+	downloadList := utils.CompareForDownload(localFiles, remoteFiles)
 
 	for _, file := range downloadList {
 		relPath := file.Path
 		fmt.Printf("📥 Downloading: %s\n", relPath)
-		err := client.DownloadFile(serverURL, token, repo, relPath)
+		err := client.DownloadFile(serverURL, cfg, repo, relPath)
 		if err != nil {
 			fmt.Printf("❌ Download failed for %s: %v\n", relPath, err)
 		} else {
@@ -359,6 +372,16 @@ func handlePull(repoDir string) {
 }
 
 func handleStatus(repoDir string) {
+	cfg, err := config.LoadConfig(repoDir)
+	if err != nil {
+		hlog.Error(err.Error())
+		os.Exit(1)
+	}
+	if cfg.Token == "" {
+		fmt.Println("❌ not found token，please login first")
+		os.Exit(1)
+	}
+
 	repo, err := utils.GetRepoName(repoDir)
 	if err != nil {
 		fmt.Println("❌", err)
@@ -371,13 +394,7 @@ func handleStatus(repoDir string) {
 		os.Exit(1)
 	}
 
-	token, _, err := config.LoadToken()
-	if err != nil {
-		fmt.Println("❌ Not logged in. Please login first.")
-		os.Exit(1)
-	}
-
-	remoteFiles, err := client.FetchRemoteFiles(serverURL, token, repo)
+	remoteFiles, err := client.FetchRemoteFiles(serverURL, cfg, repo)
 	if err != nil {
 		fmt.Println("❌ Failed to fetch remote files:", err)
 		os.Exit(1)
@@ -389,8 +406,8 @@ func handleStatus(repoDir string) {
 		os.Exit(1)
 	}
 
-	toUpload := client.CompareForUpload(localFiles, remoteFiles)
-	toDownload := client.CompareForDownload(localFiles, remoteFiles)
+	toUpload := utils.CompareForUpload(localFiles, remoteFiles)
+	toDownload := utils.CompareForDownload(localFiles, remoteFiles)
 
 	if len(toUpload) > 0 {
 		fmt.Println("🟢 Files to upload:")
@@ -409,5 +426,4 @@ func handleStatus(repoDir string) {
 	} else {
 		fmt.Println("🔵 No files need to be download.")
 	}
-
 }
